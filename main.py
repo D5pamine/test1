@@ -9,7 +9,9 @@ import uvicorn
 from fastapi.middleware.cors import CORSMiddleware 
 from ai_upload import router as upload_router
 from auto_report import router as auto_report
-
+from report_result import router as report_result_router
+from detected_videos import router as jsonfilehandler_router
+from test import router as test_router
 
 app = FastAPI()
 
@@ -25,14 +27,17 @@ app.add_middleware(
 app.include_router(user_router, prefix = "/user")
 app.include_router(login_router, prefix = "/auth")
 app.include_router(signup_router, prefix = "/auth")
-app.include_router(detected_videos_router)
 app.include_router(video_routers)
-app.include_router(upload_router, prefix="/files", tags=["File Upload"])
+app.include_router(upload_router, tags=["File Upload"])
 app.include_router(auto_report, tags = ["Report"])
+#app.include_router(report_result_router, tags = ["Report"])
+#app.include_router(test_router, tags = ['test'])
+app.include_router(detected_videos_router)
+app.include_router(jsonfilehandler_router)
 
 @app.get("/")
 def root():
     return {"message": "FastAPI is running!"}
 
 if __name__ == "__main__": 
-    uvicorn.run(app, host="0.0.0.0", port=3000)
+    uvicorn.run(app, host="0.0.0.0", port=8000)

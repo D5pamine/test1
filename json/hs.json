@@ -1,0 +1,15 @@
+{
+    "user_id": "hs",
+    "detected_id" : 2,
+    "violation": "Overloading",
+    "car_num": "29더 5983",
+     "gps": {
+        "latitude": 27.1234,
+        "longitude": 32.4923,
+        "timestamp": "2025-02-25T15:59:23.123456"
+    },
+    "video_path": "C:/project/test_video_2.mp4"
+          
+}
+
+    

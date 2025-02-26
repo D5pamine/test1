@@ -1,0 +1,15 @@
+{
+    "user_id": "hs",
+    "detected_id" : 2,
+    "violation": "Line",
+    "car_num": "31사 1957",
+     "gps": {
+        "latitude": 37.4893,            
+        "longitude": 126.9280,
+        "timestamp": "2025-02-23T17:25:00.0000"
+    },
+    "video_path": "C:/project/test_video_2.mp4"
+          
+}
+
+    

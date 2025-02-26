@@ -1,0 +1,14 @@
+{
+    "user_id": "yoonji",
+    "detected_id" : 4,    
+    "violation": "Overloading",
+    "car_num": "31사 1957",
+     "gps": {
+        "latitude": 37.5665,
+        "longitude": 126.9780,
+        "timestamp": "2025-02-19T15:30:45.123456"
+    },
+    "video_path": "C:/project/test_video.mp4"
+}
+
+    

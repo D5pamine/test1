@@ -6,7 +6,9 @@ from schemas import UserUpdate
 #from login_auth_api import verify_token
 from login_auth_api import get_current_user
 from schemas import UserResponse, UserUpdate
-
+from login_auth_api import get_current_user
+from video_routers import get_detected_videos_by_user
+import traceback
 
 router = APIRouter()
 
@@ -20,30 +22,50 @@ def get_user_profile(user=Depends(get_current_user)):
         "message": "인증된 사용자입니다."
     }
 
-# 사용자 정보 조회 API
+
+
+# 로그인한 사용자의 전체 정보 조회 API
 @router.get("/user/info", response_model=UserResponse)
-def get_user_info(user=Depends(get_current_user), db:Session = Depends(get_db)):
+def get_user_info(user=Depends(get_current_user), db: Session = Depends(get_db)):
+    try:
+        # 🔹 인증된 사용자 확인
+        if not user:
+            raise HTTPException(status_code=401, detail="인증되지 않은 사용자입니다.")
 
-    # 블랙박스 영상 목록 조회
-    videos = [video.original_video_oath for video in db.query(Detected).filter(Detected.user_id==user.user_id).all()]
+        # 🔹 블랙박스 영상 목록 조회
+        detected_videos = db.query(Detected).filter(Detected.user_id == user.user_id).all()
 
-    # 신고 내역 갯수 조회
-    report_count = db.query(Report).filter(Report.user_id == user.user_id).count()
+        if detected_videos is None or len(detected_videos) == 0:
+            videos = "저장된 영상이 없습니다."
+        else:
+            videos = [
+                {
+                    "detected_id": getattr(video, "detected_id", None),
+                    "user_id": getattr(video, "user_id", None),
+                    "car_num": getattr(video, "car_num", None),
+                    "video_path": getattr(video, "d_video_path", None),
+                    "location": getattr(video, "place", None),
+                    "violation": getattr(video, "violation", None),
+                    "time": getattr(video, "time", None)
+                }
+                for video in detected_videos if video is not None
+            ]
+        
+        return UserResponse(
+            user_id=user.user_id,
+            username=user.username,
+            email=user.email,
+            phone=user.phone,
+            site_id=user.site_id,
+            videos=videos
+        )
 
-    # ESG 점수 조회
-    esg_score = db.query(ESG).filter(ESG.user_id == user.user_id).first()
-    esg_value = esg_score.esg_score if esg_score else None
+    except Exception as e:
+        db.rollback()
+        error_trace = traceback.format_exc()  # 🔹 오류 추적
+        print(f"사용자 정보 조회 중 오류 발생: {e}\n{error_trace}")  # 로그 출력
+        raise HTTPException(status_code=500, detail=f"사용자 정보 조회 중 오류 발생: {str(e)}")
 
-    return UserResponse(
-        user_id=user.user_id,
-        username=user.username,
-        email=user.email,
-        phone=user.phone,
-        site_id=user.site_id,
-        esg_score=esg_value,
-        report_count=report_count,
-        videos=videos
-    )
 
 
 

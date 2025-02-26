@@ -6,7 +6,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from sqlalchemy.orm import Session
 from models import User, Detected
-from schemas import UserCreate, UserUpdate, BlackboxCreate, DetectedCreate
+from schemas import UserCreate, UserUpdate
 from passlib.context import CryptContext
 from datetime import datetime
 
@@ -25,7 +25,7 @@ def create_user(db: Session, user: UserCreate):
         return "user_id_exists"  # 이미 존재하는 아이디
     
     # 비밀번호 해싱 (데이터 무결성을 위해)
-    hased_password = bcrypt_context.hash(user.user_pw)
+    hashed_password = bcrypt_context.hash(user.user_pw)
 
 
     # 새 사용자 추가
@@ -48,7 +48,7 @@ def get_user_by_user_id(db: Session, user_id: str):
     return db.query(User).filter(User.user_id == user_id).first()
 
 
-# 사용자 정보 업데이트트
+# 사용자 정보 업데이트
 def update_user(db: Session, user_id: str, user_update: UserUpdate):
     db_user = db.query(User).filter(User.user_id==user_id).first()
 
@@ -71,16 +71,14 @@ def update_user(db: Session, user_id: str, user_update: UserUpdate):
 
 
 def create_detected_entry(
-        db: Session, detected_id: int, video_id: int,
-        car_num: str, place: str, violation: str,
-        time: datetime, user_id: str
+        db: Session, car_num: str, place: str, violation: str, 
+        time: datetime, user_id: str, detected_id: int
         ):
     """
     검출된 차량 정보 생성
     """
     new_detected = Detected(
         detected_id=detected_id,
-        video_id=video_id,
         car_num=car_num,
         place=place,
         violation = violation,

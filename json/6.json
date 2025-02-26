@@ -1,0 +1,12 @@
+{
+    "user_id": "yoonji",
+    "detected_id": 6,
+    "violation": "Stealth",
+    "car_num": "Unknown",
+    "gps": {
+        "latitude": 37.5665,
+        "longitude": 126.978,
+        "timestamp": "2025-02-19T15:30:45.123456"
+    },
+    "video_path": "http://172.20.10.3:8000/files/files/upload/6.mp4"
+}

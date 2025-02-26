@@ -1,5 +1,7 @@
 # 받은 JSON 파일에서 GPS 정보를 도로명으로 바꾸고 필요한 정보를 추출해서 DB에 저장
-
+'''
+JSON에서 데이터 추출해서 DB에 저장
+'''
 
 from fastapi import Depends, HTTPException, APIRouter, File, UploadFile
 from datetime import datetime
@@ -11,14 +13,10 @@ import json, requests, os, time
 from login_auth_api import get_current_user
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
-
-
 '''
 받은 JSON 파일에서 GPS 정보를 도로명으로 바꾸고 필요한 정보를 추출해서 DB에 저장
 '''
-
 router = APIRouter()
-
 naver_clientid = "cuz1ad1kxw"
 naver_clientsecret = "B5XICp3ypKpC9Za38N9If0ayCGfY9YtdhRF0gQH9"
 
@@ -31,6 +29,7 @@ def get_db():
     try:
         yield db
     finally:
+
         db.close()
 
 # GPS 좌표를 도로명 주소로 변환
@@ -64,22 +63,21 @@ JSON & VIDEO 파일 읽어와서 DB에 내용 저장
 JSON_FOLDER_PATH = "C:/project/backend/json"
 VIDEO_FOLDER_PATH = "C:/project/backend/video"
 
+
 def store_json_to_db(json_filename):
     json_path = os.path.join(JSON_FOLDER_PATH, json_filename)
-
+    
     if not os.path.exists(json_path):
-        print("파일이 존재하지 않음")
+        print(f"파일 없음: {json_filename}")
         return
-    user_id = os.path.splitext(json_filename)[0]
 
     try:
-        with open(json_path, "r", encoding = "utf-8") as file:
+        with open(json_path, "r", encoding="utf-8") as file:
             data = json.load(file)
     except json.JSONDecodeError:
         print(f"JSON 파싱 오류: {json_filename}")
         return
 
-        
     detected_id = data.get("detected_id")
     violation = data.get("violation")
     car_num = data.get("car_num")
@@ -88,94 +86,81 @@ def store_json_to_db(json_filename):
     longitude = data.get("gps", {}).get("longitude")
     time = data.get("gps", {}).get("timestamp")
 
-    if not (detected_id and violation and car_num and d_video_path and latitude and longitude and time):
-        raise HTTPException(status_code=400, detail = "필수 데이터가 누락되었습니다.")
+    if None in [detected_id, violation, car_num, d_video_path, latitude, longitude, time]:
+        print(f"🚨 필수 데이터 누락됨: {json_filename}")
+        return
 
-        '''
-        video_path = None
-        for video_file in os.listdir(VIDEO_FOLDER_PATH):
-            if str(detected_id) in video_file:  # detected_id가 파일명에 포함된 경우
-                video_path = os.path.join(VIDEO_FOLDER_PATH, video_file)
-                break  # 첫 번째로 찾은 파일 사용
-
-        if not video_path:
-            print(f"⚠ 매칭되는 영상 파일 없음: detected_id={detected_id}")
-            continue
-        '''
     try:
         timestamp = datetime.strptime(time, "%Y-%m-%dT%H:%M:%S.%f")
     except ValueError:
-        raise HTTPException(status_code = 400, detail = "잘못된 시간 형식입니다.")
-    
-    # GPS 변환
+        print(f"🚨 잘못된 시간 형식: {json_filename}")
+        return
+
     address = get_address_from_gps(latitude, longitude)
 
-    db = next(get_db())
-    # DB 중복 체크
-    existing_video = db.query(Detected).filter(Detected.detected_id == detected_id).first()
-    if existing_video:
-        return {"message": f"이미 저장된 비디오입니다."}
-    
-    # DB 저장
-    detected_video = Detected(
-        user_id = user_id,
-        detected_id = detected_id,
-        violation = violation,
-        car_num = car_num,
-        d_video_path = d_video_path,
-        place = address,
-        time = timestamp
-    )
-
-    db.add(detected_video)
-    db.commit()
-    db.refresh(detected_video)
-
-    print(f"새 파일 감지 -> DB 저장 완료")
-
-class NewFileHandler(FileSystemEventHandler):
-    def on_created(self, event):
-        if event.is_directory:
-            return
-        if event.src_path.endswith(".json"):
-            json_filename = os.path.basename(event.src_path)
-            print("새로운 json 파일 감지")
-            store_json_to_db(json_filename)
-
-def watch_folder():
-    event_handler = NewFileHandler()
-    observer = Observer()
-    observer.schedule(event_handler, path = JSON_FOLDER_PATH, revursive = False)
-    observer.start()
-
-    print("JSON 폴더 감시 시작: {JSON_FOLDER_PATH}")
-    
+    db = SessionLocal()
     try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        observer.stop()
-    observer.join()
+        if db.query(Detected).filter(Detected.detected_id == detected_id).first():
+            print(f"✅ 이미 저장된 데이터: {json_filename}")
+            return
 
-if __name__ == "__main__":
-    watch_folder()
+        detected_video = Detected(
+            detected_id=detected_id,
+            violation=violation,
+            car_num=car_num,
+            d_video_path=d_video_path,
+            place=address,
+            time=timestamp
+        )
+
+        db.add(detected_video)
+        db.commit()
+        print(f"✅ DB 저장 완료: {json_filename}")
+
+    except Exception as e:
+        print(f"🚨 DB 오류: {str(e)}")
+        db.rollback()
+    finally:
+        db.close()
+
+    os.makedirs(JSON_FOLDER_PATH, exist_ok=True)
+    os.rename(json_path, os.path.join(JSON_FOLDER_PATH, json_filename))
+
+class JSONFileHandler(FileSystemEventHandler):
+    def on_created(self, event):
+        if not event.is_directory and event.src_path.endswith(".json"):
+            time.sleep(1)  # 파일 저장 완료 대기
+            filename = os.path.basename(event.src_path)
+            print(f"📂 새 JSON 파일 감지: {filename}")
+            store_json_to_db(filename)
+
+
+def process_all_json_files():
+    json_files = [f for f in os.listdir(JSON_FOLDER_PATH) if f.endswith(".json")]
+
+    if not json_files:
+        print("📂 처리할 JSON 파일이 없습니다.")
+        return
+
+    print(f"📂 총 {len(json_files)}개의 JSON 파일을 확인합니다.")
+    
+    for json_filename in json_files:
+        store_json_to_db(json_filename)
+    
+    print("✅ 모든 JSON 파일 처리가 완료되었습니다.")
+
+
+@router.on_event("startup")
+def startup_event():
+    print("🚀 서버 시작 -> JSON 데이터 처리 시작")
+    process_all_json_files()
+    
+    observer = Observer()
+    observer.schedule(JSONFileHandler(), JSON_FOLDER_PATH, recursive=False)
+    observer.start()
+    print("👀 JSON 폴더 감시 시작")
 
 
 
 
-
-
-
-
-'''
-    return {
-        "message": "파일 업로드 및 DB 저장 성공",
-        "user_id": detected_video.user_id,
-        "detected_id" : detected_video.detected_id,
-        "d_video_path" : detected_video.d_video_path,
-        "location" : detected_video.place
-    }
-# except json.JSONDecodeError:
-    # raise HTTPException(status_code=400, detail = "잘못된 json 형식입니다.")
-'''
 
