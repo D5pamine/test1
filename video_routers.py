@@ -34,7 +34,12 @@ def get_detected_videos_by_user(
     try:
         user_id = user.user_id  # 로그인한 사용자의 user_id 가져오기
         print(f"로그인한 user_id: {user_id}")
-
+        violation_translation = {
+            "Stealth": "스텔스",
+            "Overloading": "과적",
+            "Weaving": "칼치기",
+            "No Helmet": "헬멧 미착용"
+        }
         detected_videos = (
             db.query(Detected)
             .filter(Detected.user_id == user_id)  # 로그인한 사용자(user_id)의 검출 영상만 조회
@@ -48,9 +53,9 @@ def get_detected_videos_by_user(
                 "detected_id": video.detected_id,
                 "user_id": video.user_id,
                 "car_num": video.car_num,
-                "video_path": video.d_video_path,
+                "video_path": os.path.join(VIDEO_DIR, f"{video.detected_id}.mp4"),
                 "location": video.place,
-                "violation": video.violation,
+                "violation": violation_translation.get(video.violation, video.violation),
                 "time": video.time
             }
             for video in detected_videos
